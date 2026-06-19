@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Crypto Analytics OSS — educational confluence signals</title>
+<style>
+  :root { --bg:#0b0e14; --card:#141925; --fg:#e6e9ef; --muted:#8b94a7;
+          --pos:#3fb950; --neg:#f85149; --neu:#d29922; --accent:#58a6ff; --line:#222937; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg); color:var(--fg); }
+  .wrap { max-width:780px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 18px; font-size:13px; }
+  .disclaimer { background:#2a1d1d; border:1px solid #5c2b2b; color:#ffb3b3;
+                padding:10px 12px; border-radius:8px; font-size:12.5px; margin-bottom:18px; }
+  form { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  input, button, select { font:inherit; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
+          background:var(--card); color:var(--fg); }
+  input { flex:1; min-width:160px; }
+  button { background:var(--accent); color:#08111f; border:none; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:16px; margin-bottom:14px; }
+  .row { display:flex; justify-content:space-between; gap:12px; padding:5px 0; }
+  .row .k { color:var(--muted); }
+  .big { font-size:20px; font-weight:700; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+  .pass { background:#143020; color:var(--pos); } .refuse { background:#3a1717; color:var(--neg); }
+  .favorable { color:var(--pos); } .hostile { color:var(--neg); } .neutral { color:var(--neu); }
+  .layer { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid var(--line); }
+  .layer:first-child { border-top:none; }
+  .lname { width:96px; color:var(--muted); text-transform:capitalize; }
+  .bar { flex:1; height:8px; background:#0c1018; border-radius:4px; position:relative; overflow:hidden; }
+  .fill { position:absolute; top:0; bottom:0; }
+  .ldetail { font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .dark { opacity:.45; }
+  .err { color:var(--neg); }
+  .muted { color:var(--muted); font-size:12px; }
+  code { background:#0c1018; padding:1px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Crypto Analytics OSS</h1>
+  <p class="sub">5-layer confluence signal (TA · derivatives · on-chain · macro · sentiment) +
+     a liquidation-distance guardrail, for any coin. All data from free public sources.</p>
+
+  <div class="disclaimer">
+    <strong>EDUCATIONAL ONLY — NOT FINANCIAL ADVICE.</strong> This tool does not execute trades,
+    holds no exchange keys, and makes no guarantees. Leverage can lose you more than your deposit.
+    Do your own research.
+  </div>
+
+  <form id="f">
+    <input id="coin" placeholder="coin id, symbol or name — e.g. bitcoin, ETH, solana" value="bitcoin" />
+    <input id="lev" type="number" step="0.5" min="0" placeholder="leverage (opt)" style="flex:0 0 130px" />
+    <button id="go" type="submit">Analyze</button>
+  </form>
+
+  <div id="out"></div>
+  <p class="muted">Self-hostable. Source &amp; docs: this repo. MIT licensed.</p>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const out = $('#out');
+const fmt = n => (n === null || n === undefined) ? 'N/A' :
+  (Math.abs(n) >= 1 ? (+n).toLocaleString(undefined,{maximumFractionDigits:2})
+                    : (+n).toPrecision(4));
+
+function layerBar(score, available){
+  const pct = Math.min(100, Math.abs(score)*100) / 2; // half-width either side
+  const color = score >= 0 ? 'var(--pos)' : 'var(--neg)';
+  const side = score >= 0 ? `left:50%;width:${pct}%` : `right:50%;width:${pct}%`;
+  return `<div class="bar"><div class="fill" style="${side};background:${available?color:'#444'}"></div></div>`;
+}
+
+function render(s){
+  if (s.error){ out.innerHTML = `<div class="card err">Error: ${s.error}</div>`; return; }
+  const g = (s.guardrail && s.guardrail.intended) || null;
+  const inZone = s.entry_zone && s.price !== null &&
+                 s.price >= s.entry_zone[0] && s.price <= s.entry_zone[1];
+  let layers = '';
+  for (const [name, l] of Object.entries(s.layer_scores || {})){
+    layers += `<div class="layer ${l.available?'':'dark'}">
+      <div class="lname">${name}</div>
+      ${layerBar(l.score, l.available)}
+      <div style="width:54px;text-align:right">${l.score>=0?'+':''}${l.score.toFixed(2)}</div>
+    </div>
+    <div class="ldetail ${l.available?'':'dark'}">${l.available?'':'[no data → neutral] '}${l.detail||''}</div>`;
+  }
+  out.innerHTML = `
+    <div class="card">
+      <div class="row"><span class="k">${s.symbol} price</span><span class="big">$${fmt(s.price)}</span></div>
+      <div class="row"><span class="k">24h change</span><span class="${s.price_change_24h>=0?'favorable':'hostile'}">${s.price_change_24h!=null?(s.price_change_24h>=0?'+':'')+s.price_change_24h.toFixed(2)+'%':'N/A'}</span></div>
+      <div class="row"><span class="k">regime</span><span class="${s.regime}">${s.regime}</span></div>
+      <div class="row"><span class="k">confidence</span><span>${s.confidence_pct}%</span></div>
+      <div class="row"><span class="k">entry zone</span><span>${s.entry_zone?('$'+fmt(s.entry_zone[0])+' – $'+fmt(s.entry_zone[1])):'N/A'} ${inZone?'<span class="badge pass">IN ZONE</span>':''}</span></div>
+      <div class="row"><span class="k">invalidation</span><span>${s.invalidation!=null?'$'+fmt(s.invalidation):'N/A'}</span></div>
+    </div>
+    <div class="card">${layers}</div>
+    ${g?`<div class="card">
+      <div class="row"><span class="k">guardrail @${g.leverage}x</span>
+        <span class="badge ${g.verdict==='PASS'?'pass':'refuse'}">${g.verdict}</span></div>
+      <p class="muted">${g.explanation}</p>
+    </div>`:''}
+    <div class="card muted">Updated ${s.last_run} · advisory_only=${s.advisory_only} · execution_path_exists=${s.execution_path_exists}.<br>${s.disclaimer}</div>`;
+}
+
+$('#f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const coin = $('#coin').value.trim();
+  if (!coin) return;
+  const lev = $('#lev').value.trim();
+  $('#go').disabled = true;
+  out.innerHTML = '<div class="card muted">Analyzing… (fetching free public data)</div>';
+  try {
+    const url = `/api/analyze?coin=${encodeURIComponent(coin)}${lev?`&leverage=${encodeURIComponent(lev)}`:''}`;
+    const r = await fetch(url);
+    render(await r.json());
+  } catch (err) {
+    out.innerHTML = `<div class="card err">Request failed: ${err}</div>`;
+  } finally {
+    $('#go').disabled = false;
+  }
+});
+$('#f').dispatchEvent(new Event('submit'));
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crypto-analytics-oss"
+version = "1.0.0"
+description = "Coin-agnostic, educational crypto confluence-analytics engine with a liquidation-distance guardrail. Not financial advice. No trade execution."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+keywords = ["crypto", "analytics", "technical-analysis", "education", "coingecko"]
+dependencies = []   # pure stdlib engine + API. python-dotenv is OPTIONAL.
+
+[project.optional-dependencies]
+dotenv = ["python-dotenv>=1.0"]
+test = ["pytest>=7"]
+
+[project.scripts]
+crypto-analytics = "crypto_analytics.analyzer:main"
+crypto-analytics-web = "crypto_analytics.api:main"
+
+[tool.setuptools]
+packages = ["crypto_analytics"]

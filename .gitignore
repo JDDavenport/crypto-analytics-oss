@@ -1,0 +1,19 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+.DS_Store
+state/
+*.json.local
+
+# internal project-management docs (not for public repo)
+ARCHITECT-BRIEF.md
+WORKPLAN.md
+qa.yaml.template
+qa/
+
+CHANGELOG.md
+LINKS.md
